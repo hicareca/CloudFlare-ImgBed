@@ -1,0 +1,53 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync upstream
+        run: |
+          git remote add upstream https://github.com/MarSeventh/CloudFlare-ImgBed.git
+          git fetch upstream
+          git reset --hard upstream/main
+
+          # 恢复 workflow 文件自身
+          mkdir -p .github/workflows
+          cat > .github/workflows/sync-fork.yml << 'EOF'
+          name: Sync Fork
+          on:
+            schedule:
+              - cron: '0 0 * * *'
+            workflow_dispatch:
+          jobs:
+            sync:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v4
+                  with:
+                    token: ${{ secrets.GITHUB_TOKEN }}
+                - name: Sync upstream
+                  run: |
+                    git remote add upstream https://github.com/MarSeventh/CloudFlare-ImgBed.git
+                    git fetch upstream
+                    git reset --hard upstream/main
+                    mkdir -p .github/workflows
+                    git checkout HEAD -- .github/workflows/sync-fork.yml 2>/dev/null || true
+                    git add .github/workflows/sync-fork.yml
+                    git commit -m "chore: restore sync workflow" --allow-empty
+                    git push origin main --force
+          EOF
+
+          git add .github/workflows/sync-fork.yml
+          git commit -m "chore: restore sync workflow after upstream sync"
+          git push origin main --force
